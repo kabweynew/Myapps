@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Apps – Free Android APK &amp; App Downloads</title>
+<meta name="description" content="Download free apps and APK files made by me. Search, browse and install on your phone.">
+<link rel="stylesheet" href="style.css">
+</head><body>
+<header><h1>📦 My Apps</h1>
+<p class="sub">Free apps and APK downloads. Tap Download to get an app on your phone.</p>
+<div class="bar"><input id="q" type="search" placeholder="Search apps…" aria-label="Search apps">
+<select id="pf" aria-label="Platform"><option value="">All platforms</option></select></div></header>
+<main id="list"><div class="empty">Loading…</div></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+const $=id=>document.getElementById(id);let apps=[];
+const sb=supabase.createClient(CFG.URL,CFG.KEY);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const sz=b=>b?(b>1e6?(b/1e6).toFixed(1)+' MB':Math.max(1,Math.round(b/1e3))+' KB'):'';
+function render(){
+  const q=$('q').value.toLowerCase(),pf=$('pf').value;
+  const r=apps.filter(a=>(!pf||a.platform===pf)&&(!q||[a.name,a.description,a.version,a.platform].join(' ').toLowerCase().includes(q)));
+  $('list').innerHTML=r.length?r.map(a=>`<article class="card"><div class="ic">${a.icon_url?`<img src="${esc(a.icon_url)}" alt="">`:esc((a.name||'?')[0].toUpperCase())}</div>
+<div class="inf"><b>${esc(a.name)}</b><span class="tag">${esc(a.platform||'')}</span>${a.version?`<span class="tag">v${esc(a.version)}</span>`:''}<span class="m">${sz(a.size)}</span>
+${a.description?`<div class="d">${esc(a.description)}</div>`:''}</div>
+<a class="btn" href="${esc(a.file_url)}">Download</a></article>`).join(''):'<div class="empty">No apps found.</div>';
+}
+sb.from('apps').select('*').order('created_at',{ascending:false}).then(({data,error})=>{
+  if(error){$('list').innerHTML='<div class="empty">Could not load apps.</div>';return}
+  apps=data;[...new Set(data.map(a=>a.platform).filter(Boolean))].forEach(p=>$('pf').add(new Option(p,p)));render();
+});
+$('q').oninput=render;$('pf').onchange=render;
+</script></body></html>

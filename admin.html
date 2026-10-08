@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Admin – My Apps</title><link rel="stylesheet" href="style.css"></head><body>
+<header><h1>Admin</h1></header>
+<main>
+<section id="login" class="card"><form id="lf" style="flex:1">
+<label>Email<input id="em" type="email" required></label>
+<label>Password<input id="pw" type="password" required></label>
+<button>Log in</button><div id="lmsg" class="m"></div></form></section>
+
+<section id="panel" hidden>
+<div class="card"><form id="uf" style="flex:1">
+<b>Upload an app</b>
+<label>Name<input id="n" required></label>
+<label>Version<input id="v" placeholder="1.0.0"></label>
+<label>Platform<select id="p"><option>Android (APK)</option><option>PWA</option><option>Windows</option><option>iOS</option><option>Other</option></select></label>
+<label>Description<textarea id="ds" rows="2"></textarea></label>
+<label>Icon (optional image)<input id="ico" type="file" accept="image/*"></label>
+<label>App file<input id="file" type="file" required></label>
+<button id="go">Upload</button><div id="msg"></div></form></div>
+<h3>Your apps</h3><div id="mine" style="display:grid;gap:10px"></div>
+<p><button class="sec" id="out">Log out</button></p>
+</section></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const sb=supabase.createClient(CFG.URL,CFG.KEY);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const safe=n=>Date.now()+'-'+n.replace(/[^\w.\-]+/g,'_');
+function show(on){$('login').hidden=on;$('panel').hidden=!on;if(on)list()}
+sb.auth.getSession().then(({data})=>show(!!data.session));
+$('lf').onsubmit=async e=>{e.preventDefault();
+  const {error}=await sb.auth.signInWithPassword({email:$('em').value,password:$('pw').value});
+  if(error)$('lmsg').textContent=error.message;else show(true)};
+$('out').onclick=async()=>{await sb.auth.signOut();show(false)};
+async function list(){
+  const {data}=await sb.from('apps').select('*').order('created_at',{ascending:false});
+  $('mine').innerHTML=(data||[]).map(a=>`<div class="card"><div class="inf"><b>${esc(a.name)}</b> <span class="m">${esc(a.version||'')}</span></div><button class="sec" data-id="${a.id}">Delete</button></div>`).join('')||'<div class="m">Nothing yet.</div>';
+  $('mine').onclick=async e=>{const id=e.target.dataset.id;if(!id||!confirm('Delete this app?'))return;
+    const a=data.find(x=>x.id===id);
+    await sb.storage.from('apps').remove([a.file_path]);await sb.from('apps').delete().eq('id',id);list()};
+}
+$('uf').onsubmit=async e=>{e.preventDefault();
+  const f=$('file').files[0];$('go').disabled=true;$('msg').textContent='Uploading… keep this page open.';
+  try{
+    const path=safe(f.name);
+    let r=await sb.storage.from('apps').upload(path,f,{contentType:f.type||'application/octet-stream'});
+    if(r.error)throw r.error;
+    const file_url=sb.storage.from('apps').getPublicUrl(path,{download:f.name}).data.publicUrl;
+    let icon_url=null;const ic=$('ico').files[0];
+    if(ic){const ip=safe('icon-'+ic.name);const ir=await sb.storage.from('apps').upload(ip,ic);
+      if(!ir.error)icon_url=sb.storage.from('apps').getPublicUrl(ip).data.publicUrl}
+    r=await sb.from('apps').insert({name:$('n').value,version:$('v').value,platform:$('p').value,description:$('ds').value,size:f.size,file_url,file_path:path,icon_url});
+    if(r.error)throw r.error;
+    $('uf').reset();$('msg').textContent='✅ Uploaded! It is now live on your site.';list();
+  }catch(err){$('msg').textContent='Failed: '+err.message}
+  $('go').disabled=false};
+</script></body></html>

@@ -19,3 +19,4 @@ main{display:grid;gap:10px;padding-top:0}
 .empty{text-align:center;color:var(--mut);padding:40px 0}
 form{display:grid;gap:10px}label{font-size:13px;color:var(--mut);display:grid;gap:4px}
 #msg{min-height:20px;color:var(--mut)}
+[hidden]{display:none!important}
